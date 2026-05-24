@@ -1,0 +1,75 @@
+import odrive
+import time
+from odrive.enums import *
+
+SERIAL_TO_MOTOR = {
+    "394A353B3231": 0,
+    "393E353C3231": 1,
+    "393D35443231": 2,
+    "394A35513231": 3,
+}
+
+def calibrate_axis(odrv, motor_id):
+    print(f"\n--- Calibrating motor {motor_id} ---")
+
+    axis = odrv.axis0
+
+    # Clear old errors
+    odrv.clear_errors()
+
+    # Run full calibration sequence
+    axis.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+
+    time.sleep(5)
+    # Wait until calibration finishes
+    while axis.current_state != AXIS_STATE_IDLE:
+        time.sleep(0.1)
+
+    # Check results
+    print("Procedure result:", axis.procedure_result)
+    print("Active errors:", axis.active_errors)
+
+    if axis.procedure_result != ProcedureResult.SUCCESS:
+        raise Exception(f"Calibration failed for motor {motor_id}")
+
+
+    print(f"Motor {motor_id} calibration successful.")
+
+
+def main():
+    for serial, motor_id in SERIAL_TO_MOTOR.items():
+        try:
+            print(f"\nConnecting to motor {motor_id} ({serial})")
+
+            odrv = odrive.find_any(serial_number=serial, timeout=15)
+            axis = odrv.axis0
+
+            calibrate_axis(odrv, motor_id)
+
+            # Preserve anticogging if it was already calibrated
+            print("Anticogging enabled:", axis.config.anticogging.enabled)
+            print("Anticogging pre-calibrated:", axis.controller.anticogging.pre_calibrated)
+
+            # Do NOT recalibrate anticogging automatically
+            # (Only run if you explicitly want to)
+
+            print("Saving configuration...")
+            odrv.save_configuration()
+            time.sleep(5)
+            print("Rebooting ODrive...")
+            odrv.reboot()
+
+            time.sleep(5)
+
+        except Exception as e:
+            print(f"Motor {motor_id}: disconnected after save (EXPECTED)")
+
+    print("\nAll motors calibrated successfully.")
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+

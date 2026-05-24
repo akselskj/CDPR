@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual env
+venv/
+.env/
+
+# VSCode
+.vscode/
+
+# Logs
+logs/
+*.npz
+*.csv
+
+# Images/videos
+*.mp4
+*.avi
+*.mov
+
+# OS files
+.DS_Store
+Thumbs.db

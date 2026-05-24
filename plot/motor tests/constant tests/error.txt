@@ -1,0 +1,6 @@
+Worst error is about 0.03 turns at 0.2 turns/s, jumps between 0 and 0.03 turns
+error at 1 turn/s at around 0.05 turns, but very constant
+
+we can see from the error zoom plots that the motor trails the target by 0.05 sec
+
+even With Applied load the motor tracks position quite well

@@ -1,0 +1,54 @@
+'''
+SVG Drawer
+This example shows how to draw SVG paths.
+To get this to work we will be using svgpathtools library. It's a great collection of tools that make it easy to deal with SVG files.
+
+NOTE: For this project make sure you set up a user frame to make sure it supports the tool that you choose to attach.
+
+Libraries used:
+svgpathtools (https://github.com/mathandy/svgpathtools)
+pygame (https://www.pygame.org/docs/ref/draw.html)
+
+Reference: 
+Gerry W Jenkins has a great tutorial on how to play with SVG paths in python, https://gjenkinsedu.com/post/drawing_py_svg_path_0001/
+'''
+
+import pygame
+from svgpathtools import  svg2paths #Other tools that you can import from svgpathtools: Path, Line, QuadraticBezier, CubicBezier, Arc,
+from pathlib import Path
+
+''' 
+Step 1) Setting up svgpathtools to deal with SVG paths 
+'''
+
+svg_path = Path(__file__).parent / "deer.svg"
+paths, attributes = svg2paths(svg_path) # Getting paths and attributes
+path_steps = 1000 # Number of steps to take in a path
+scale = 1
+c_paths = []
+
+for path in paths:
+    path_points = []
+    for i in range(0, path_steps + 1): # loop from 0 to path_steps + 1 
+        p = i / path_steps             # Remapping 0 - path_steps(100) to  0.0 to 1.0
+        complex_point = path.point(p)  # path.point(p) returns point at 0.0 <= p <= 1.0
+        path_points.append((complex_point.real * scale, complex_point.imag * scale))    # Adding extracted points to path_point[] list  
+    c_paths.append(path_points)     # Adding collected path points to c_paths[] list
+
+''' 
+Step 2) Setting up pygame to display our paths 
+'''
+
+pygame.init()                                  # init pygame
+surface = pygame.display.set_mode((600, 600))   # get surface to draw on (width = 600, height = 600)
+surface.fill(pygame.Color('white'))            # set background to white
+
+for c_path in c_paths: # for every path  in c_paths[] list
+    pygame.draw.aalines(surface, pygame.Color('blue'), False, c_path)  # False is no closing (Meaning a closing line wont be drawn from the last point to the first)
+    pygame.display.update() # copy surface to display
+
+
+while True:  # loop to wait till window closes
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            exit()

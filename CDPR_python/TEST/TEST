@@ -1,0 +1,76 @@
+import odrive as odrive
+import time
+from odrive.enums import *
+import geometry as geom
+import parameters as p
+
+
+
+SERIAL_TO_MOTOR = {
+    "394A353B3231": 0,
+    "393E353C3231": 1,
+    "393D35443231": 2,
+    "394A35513231": 3,
+}
+
+odrvs = {}
+motors = {}
+
+
+print("Connecting to ODrives by serial number...")
+
+for serial, motor_id in SERIAL_TO_MOTOR.items():
+    print(f"Connecting to motor {motor_id} (serial {serial})")
+    odrv = odrive.find_any(serial_number=serial, timeout=20)
+    odrvs[motor_id] = odrv
+    axis = odrv.axis0
+    axis.requested_state = AXIS_STATE_IDLE
+    print(f"Motor {motor_id} set to IDLE")
+    motors[motor_id] = axis
+
+next_t = time.perf_counter()
+target_dt = 0.02
+
+for i in range(10):
+    t0 = time.perf_counter()
+    
+    _ = [axis.current_state for axis in motors.values()]
+    t1 = time.perf_counter()
+    
+    _ = [axis.pos_estimate for axis in motors.values()]
+    t2 = time.perf_counter()
+    
+    _ = [axis.vel_estimate for axis in motors.values()]
+    t3 = time.perf_counter()
+    
+    _ = [axis.motor.foc.Iq_measured for axis in motors.values()]
+    t4 = time.perf_counter()
+    
+    _ = [odrv.vbus_voltage for odrv in odrvs.values()]
+    t5 = time.perf_counter()
+    
+    q_des, q_dot_des = geom.get_q_des(0)
+    t6 = time.perf_counter()
+    
+    d_abs = geom.inverse_kinematics(q_des, p.a, p.b)
+    t7 = time.perf_counter()
+
+    next_t += target_dt
+    
+    # If we're already late, don't try to catch up — just skip ahead
+    now = time.perf_counter()
+    if next_t < now:
+        skipped = int((now - next_t) / target_dt) + 1
+        next_t += skipped * target_dt  # skip missed deadlines rather than bunching
+        
+    while time.perf_counter() < next_t:
+        if next_t - time.perf_counter() > 0.001:
+            time.sleep(0)
+    
+    t8 = time.perf_counter()
+    
+    print(f"states={1000*(t1-t0):.2f}ms  pos={1000*(t2-t1):.2f}ms  "
+          f"vel={1000*(t3-t2):.2f}ms  iq={1000*(t4-t3):.2f}ms  "
+          f"vbus={1000*(t5-t4):.2f}ms  traj={1000*(t6-t5):.2f}ms  "
+          f"ik={1000*(t7-t6):.2f}ms  total={1000*(t8-t0):.2f}ms  "
+          f"wait={1000*(t8-t7):.2f}ms")

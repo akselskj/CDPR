@@ -1,0 +1,125 @@
+import odrive
+import time
+import msvcrt
+import matplotlib.pyplot as plt
+import numpy as np
+from odrive.enums import *
+import geometry as geom
+
+SERIAL_TO_MOTOR = {
+    "394A353B3231": 0,
+    "393E353C3231": 1,
+    "393D35443231": 2,
+    "394A35513231": 3,
+}
+
+# -------- Select motor --------
+motor_id = 1
+serial = next(s for s, m in SERIAL_TO_MOTOR.items() if m == motor_id)
+
+print(f"Connecting to motor {motor_id} (serial {serial})")
+odrv = odrive.find_any(serial_number=serial, timeout=20)
+axis = odrv.axis0
+
+# -------- Enter closed loop & position mode --------
+axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+axis.controller.config.control_mode = CONTROL_MODE_VELOCITY_CONTROL
+axis.controller.config.input_mode = INPUT_MODE_PASSTHROUGH
+axis.controller.config.vel_limit = 2.0   # turns per second
+axis.controller.config.vel_limit_tolerance = 1.2
+axis.controller.config.vel_gain = 0.5
+
+
+time.sleep(0.2)
+
+print("Motor in POSITION CONTROL")
+print(f"Current position: {axis.pos_estimate:.4f} turns")
+
+print(f"Current position: {odrv.rs485_encoder_group0.raw:.4f} turns")
+
+# initial offset
+q0_enc = odrv.rs485_encoder_group0.raw
+q0_ax = axis.pos_estimate
+
+# logging
+t0 = time.time()
+t_log = []
+pos_log_ax = []
+pos_log_enc = []
+vel_log = []
+ref_log = []
+
+# reference
+target_pos = 0.0
+d0_enc = [0, odrv.rs485_encoder_group0.raw, 0, 0]
+d0_ax = [0, axis.pos_estimate, 0, 0]
+
+dt = 0.02  # 50 Hz
+
+buf = ""
+
+print("Type new target positions and press Enter (Ctrl+C to stop)")
+
+try:
+    while True:
+        t = time.time() - t0
+
+        # ---- keyboard input ----
+        if msvcrt.kbhit():
+            ch = msvcrt.getwch()
+
+            if ch == "\r":  # Enter
+                try:
+                    target_pos = float(buf)
+                    print(f"\nNew target_pos = {target_pos}")
+                except ValueError:
+                    print("\nInvalid number")
+                buf = ""
+
+            elif ch == "\b":  # Backspace
+                buf = buf[:-1]
+
+            else:
+                buf += ch
+                print(ch, end="", flush=True)
+
+        # ---- compute desired motor position ----
+        phi_ref = geom.phi_from_d([0, target_pos, 0, 0], d0_enc)[1]
+        axis.controller.input_vel = target_pos
+
+
+        # ---- log continuously ----
+        t_log.append(t)
+        pos_log_ax.append(axis.pos_estimate - q0_ax)
+        pos_log_enc.append(odrv.rs485_encoder_group0.raw - q0_enc)
+        vel_log.append(axis.vel_estimate)
+        ref_log.append(phi_ref - q0_ax)
+
+        time.sleep(dt)
+
+except KeyboardInterrupt:
+    pass
+
+finally:
+    axis.requested_state = AXIS_STATE_IDLE
+    print("Motor set to IDLE")
+
+
+# -------- Plot results --------
+plt.figure()
+plt.plot(t_log, pos_log_ax, label="measured (axis)")
+plt.plot(t_log, pos_log_enc, label="measured (encoder)")
+plt.plot(t_log, ref_log, "--", label="reference")
+plt.xlabel("time [s]")
+plt.ylabel("motor position [turns]")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+plt.figure()
+plt.plot(t_log, vel_log)
+plt.xlabel("time [s]")
+plt.ylabel("velocity [turns/s]")
+plt.grid(True)
+plt.show()
+

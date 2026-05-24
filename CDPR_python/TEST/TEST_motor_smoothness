@@ -1,0 +1,115 @@
+import odrive
+import time
+import msvcrt
+import matplotlib.pyplot as plt
+import numpy as np
+from odrive.enums import *
+from geometry import phi_from_d
+import parameters as p
+
+SERIAL_TO_MOTOR = {
+    "394A353B3231": 0,
+    "393E353C3231": 1,
+    "393D35443231": 2,
+    "394A35513231": 3,
+}
+
+# -------- Select motor --------
+motor_id = 1
+serial = next(s for s, m in SERIAL_TO_MOTOR.items() if m == motor_id)
+
+print(f"Connecting to motor {motor_id} (serial {serial})")
+odrv = odrive.find_any(serial_number=serial, timeout=20)
+axis = odrv.axis0
+
+# -------- Enter closed loop & position mode --------
+axis.controller.config.vel_limit = 10.0   # turns per second
+axis.controller.config.vel_limit_tolerance = 1.2
+#axis.pos_estimate = odrv.rs485_encoder_group0.raw
+axis.controller.config.control_mode = CONTROL_MODE_POSITION_CONTROL
+axis.controller.config.input_mode = INPUT_MODE_PASSTHROUGH
+axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+
+
+time.sleep(0.2)
+
+print("Motor in POSITION CONTROL")
+print(f"Current position: {axis.pos_estimate:.4f} turns")
+
+q0 = axis.pos_estimate
+
+d0 = [0, q0, 0, 0]
+
+# --------- For plotting ---------
+t0 = time.time()
+t_log = []
+pos_log = []
+vel_log = []
+
+
+t = time.time()-t0
+
+# -------- Interactive loop --------
+try:
+    while t<=10:
+        t = time.time()-t0
+
+        if msvcrt.kbhit():
+            key = msvcrt.getch()
+            if key == b'q':
+                print("\nEmergency stop (q pressed)")
+                break
+
+        speed = 0.02
+
+        #target_pos = [0,0.2*np.sin(speed*t),0,0]
+        target_pos = [0,speed*t,0,0]
+
+        axis.controller.input_pos = phi_from_d(target_pos,d0)[1]
+
+        t_log.append(t)
+        pos_log.append((axis.pos_estimate-q0)*2*np.pi*p.r_d)
+        vel_log.append(axis.vel_estimate*2*np.pi*p.r_d)
+
+
+except KeyboardInterrupt:
+    print("\nInterrupted by user.")
+
+finally:
+    axis.requested_state = AXIS_STATE_IDLE
+    print("Motor set to IDLE.")
+
+t_log = np.array(t_log)
+pos_log = np.array(pos_log)
+
+fig, ax = plt.subplots()
+
+ax.plot(t_log, pos_log, label='Measured Position')
+#ax.plot(t_log, 0.2*np.sin(speed*t_log), '--', label='Target Position')
+ax.plot(t_log, speed*t_log, '--', label='Target Position')
+ax.xaxis.set_label_text('Time [s]')
+ax.yaxis.set_label_text('Position [m]')
+ax.grid()
+plt.legend()
+plt.show()
+
+fig, ax = plt.subplots()
+
+ax.plot(t_log, vel_log, label='Measured Velocity')
+#ax.plot(t_log, 0.2*speed*np.cos(speed*t_log), '--', label='Target Velocity')
+ax.plot(t_log, speed*t_log/t_log, '--', label='Target Velocity')
+ax.xaxis.set_label_text('Time [s]')
+ax.yaxis.set_label_text('Velocity [m/s]')
+ax.grid()
+plt.legend()
+plt.show()
+
+fig, ax = plt.subplots()
+
+ax.plot(t_log, pos_log-speed*t_log, label='Measured Position Error')
+#ax.plot(t_log, 0.2*np.sin(speed*t_log), '--', label='Target Position')
+ax.xaxis.set_label_text('Time [s]')
+ax.yaxis.set_label_text('Position [m]')
+ax.grid()
+plt.legend()
+plt.show()

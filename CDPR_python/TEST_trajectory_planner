@@ -1,0 +1,248 @@
+import time
+import matplotlib
+matplotlib.use('TkAgg')
+import numpy as np
+import matplotlib.pyplot as plt
+
+DT = 0.025
+SLEEP_THRESHOLD = 0.0005
+THROW_INTERVAL = 3.0
+
+
+class ThrowControllerSim:
+    PHASE_IDLE   = "idle"
+    PHASE_THROW  = "throw"
+    PHASE_RETURN = "return"
+    PHASE_DONE   = "done"
+
+    def __init__(self, q_start, throw_dist=0.2, throw_duration=0.1, return_duration=0.2):
+        self.q_start         = q_start.copy()
+        self.throw_dist      = throw_dist
+        self.throw_duration  = throw_duration
+        self.return_duration = return_duration
+        self.phase           = self.PHASE_IDLE
+        self.t_start         = None
+
+        self._q0 = q_start.copy()
+        self._qf = np.array([q_start[0], q_start[1] + throw_dist, q_start[2]])
+
+        self._a_throw  = 2.0 * throw_dist / throw_duration**2
+        self._a_return = 2.0 * throw_dist / return_duration**2
+
+        print(f"[Throw] a_throw={self._a_throw:.2f} m/s²  "
+              f"v_release={self._a_throw * throw_duration:.2f} m/s  "
+              f"a_return={self._a_return:.2f} m/s²")
+
+    def start(self, sim_time):
+        self.t_start = sim_time
+        self.phase   = self.PHASE_THROW
+        print(f"[Throw] Started at t={sim_time:.2f}")
+
+    def is_done(self):
+        return self.phase == self.PHASE_DONE
+
+    def step(self, sim_time):
+        if self.t_start is None or self.phase in (self.PHASE_DONE, self.PHASE_IDLE):
+            return self._q0.copy(), np.zeros(3), self.phase
+
+        t_rel       = sim_time - self.t_start
+        t_throw_end = self.throw_duration
+        t_done      = self.throw_duration + self.return_duration
+
+        if t_rel <= t_throw_end:
+            self.phase = self.PHASE_THROW
+            y    = self._q0[1] + 0.5 * self._a_throw * t_rel**2
+            ydot = self._a_throw * t_rel
+
+        elif t_rel <= t_done:
+            if self.phase == self.PHASE_THROW:
+                print(f"[Throw] Phase → return")
+            self.phase = self.PHASE_RETURN
+            t_r  = t_rel - t_throw_end
+            half = self.return_duration / 2.0
+
+            if t_r <= half:
+                # accelerate downward
+                y    = self._qf[1] - 0.5 * self._a_return * t_r**2
+                ydot = -self._a_return * t_r
+            else:
+                # decelerate: note the minus sign on the last term
+                t_r2  = t_r - half
+                y_mid = self._qf[1] - 0.5 * self._a_return * half**2
+                v_mid = -self._a_return * half
+                y     = y_mid + v_mid * t_r2 - 0.5 * self._a_return * t_r2**2
+                ydot  = v_mid + self._a_return * t_r2
+
+        else:
+            self.phase = self.PHASE_DONE
+            print(f"[Throw] Done at t={sim_time:.2f}")
+            return self._q0.copy(), np.zeros(3), self.phase
+
+        q_des     = np.array([self._q0[0], y,    self._q0[2]])
+        q_dot_des = np.array([0.0,         ydot, 0.0        ])
+        return q_des, q_dot_des, self.phase
+
+    def sample_return_traj(self, n=60):
+        pts = []
+        half = self.return_duration / 2.0
+        for i in range(n):
+            t_r = self.return_duration * i / (n - 1)
+            if t_r <= half:
+                y = self._qf[1] - 0.5 * self._a_return * t_r**2
+            else:
+                t_r2  = t_r - half
+                y_mid = self._qf[1] - 0.5 * self._a_return * half**2
+                v_mid = -self._a_return * half
+                y     = y_mid + v_mid * t_r2 - 0.5 * self._a_return * t_r2**2
+            pts.append([self._q0[0], y])
+        return np.array(pts)
+
+    def sample_throw_traj(self, n=60):
+        """Sample the throw phase as an array of (x,y) points."""
+        pts = []
+        for i in range(n):
+            t_rel = self.throw_duration * i / (n - 1)
+            y = self._q0[1] + 0.5 * self._a_throw * t_rel**2
+            pts.append([self._q0[0], y])
+        return np.array(pts)
+
+    def sample_return_traj(self, n=60):
+        """Sample the return phase as an array of (x,y) points."""
+        pts = []
+        half = self.return_duration / 2.0
+        for i in range(n):
+            t_r = self.return_duration * i / (n - 1)
+            if t_r <= half:
+                y = self._qf[1] - 0.5 * self._a_return * t_r**2
+            else:
+                t_r2  = t_r - half
+                y_mid = self._qf[1] - 0.5 * self._a_return * half**2
+                v_mid = -self._a_return * half
+                y     = y_mid + v_mid * t_r2 + 0.5 * self._a_return * t_r2**2
+            pts.append([self._q0[0], y])
+        return np.array(pts)
+
+
+# ---- Initial conditions ----
+q_current     = np.array([0.0, -0.1, 0.0])
+q_dot_current = np.array([0.0,  0.0, 0.0])
+
+throw_ctrl      = ThrowControllerSim(q_current)
+last_throw_time = -THROW_INTERVAL
+in_throw        = False
+
+# ---- Plotting setup ----
+plt.ion()
+fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+
+ax = axes[0]
+ax.set_aspect("equal")
+ax.set_xlim(-0.4, 0.4)
+ax.set_ylim(-0.3, 0.5)
+ax.grid(True)
+ax.set_title("Platform view")
+ax.set_xlabel("x (m)")
+ax.set_ylabel("y (m)")
+
+platform_line,   = ax.plot([], [], "k-",  lw=3,   label="platform")
+throw_traj_line, = ax.plot([], [], "r--", lw=1.5, label="throw traj")
+lower_traj_line, = ax.plot([], [], "b--", lw=1.5, label="return traj")
+q0_dot,          = ax.plot(q_current[0], q_current[1], "gs", markersize=8, label="q_start")
+qf_dot,          = ax.plot([], [], "r^", markersize=8, label="q_end (throw)")
+phase_text = ax.text(-0.38, 0.45, "", fontsize=11, color="purple")
+ax.legend(loc="upper right", fontsize=8)
+
+ax2 = axes[1]
+ax2.set_xlim(0, THROW_INTERVAL * 3)
+ax2.set_ylim(-0.3, 0.5)
+ax2.grid(True)
+ax2.set_title("y position and velocity over time")
+ax2.set_xlabel("sim time (s)")
+ax2.set_ylabel("y (m)  /  ydot*0.05 (scaled)")
+
+y_line,    = ax2.plot([], [], "k-", lw=1.5, label="y")
+ydot_line, = ax2.plot([], [], "b-", lw=1.0, label="ydot (x0.05)")
+ax2.axhline(q_current[1],              color="g", ls="--", lw=1, label="q_start y")
+ax2.axhline(q_current[1] + 0.2,        color="r", ls="--", lw=1, label="q_end y")
+ax2.legend(loc="upper right", fontsize=8)
+
+t_history    = []
+y_history    = []
+ydot_history = []
+
+L = 0.15
+
+def platform_endpoints(q, L):
+    d = 0.5 * L * np.array([np.cos(q[2]), np.sin(q[2])])
+    return q[:2] - d, q[:2] + d
+
+fig.canvas.draw()
+
+# ---- Simulation loop ----
+sim_time = 0.0
+running  = True
+
+while running:
+    loop_start = time.perf_counter()
+    sim_time  += DT
+
+    # ---- Trigger new throw ----
+    if not in_throw and (sim_time - last_throw_time) >= THROW_INTERVAL:
+        throw_ctrl      = ThrowControllerSim(q_current)
+        throw_ctrl.start(sim_time)
+        last_throw_time = sim_time
+        in_throw        = True
+
+        # Pre-sample and draw both trajectory arcs immediately on trigger
+        pts_throw  = throw_ctrl.sample_throw_traj()
+        pts_return = throw_ctrl.sample_return_traj()
+        throw_traj_line.set_data(pts_throw[:, 0],  pts_throw[:, 1])
+        lower_traj_line.set_data(pts_return[:, 0], pts_return[:, 1])
+        qf_dot.set_data([throw_ctrl._qf[0]], [throw_ctrl._qf[1]])
+        q0_dot.set_data([throw_ctrl._q0[0]], [throw_ctrl._q0[1]])
+
+    # ---- Step controller ----
+    if in_throw:
+        q_des, q_dot_des, phase = throw_ctrl.step(sim_time)
+        if throw_ctrl.is_done():
+            in_throw = False
+            throw_traj_line.set_data([], [])
+            lower_traj_line.set_data([], [])
+    else:
+        q_des     = q_current.copy()
+        q_dot_des = np.zeros(3)
+        phase     = "idle"
+
+    q_dot_current = (q_des - q_current) / DT
+    q_current     = q_des
+
+    # ---- History ----
+    t_history.append(sim_time)
+    y_history.append(q_current[1])
+    ydot_history.append(q_dot_current[1])
+
+    # ---- Spatial plot ----
+    p1, p2 = platform_endpoints(q_current, L)
+    platform_line.set_data([p1[0], p2[0]], [p1[1], p2[1]])
+    phase_text.set_text(f"phase: {phase}")
+
+    # ---- Time-series plot ----
+    ta  = np.array(t_history)
+    ya  = np.array(y_history)
+    yda = np.array(ydot_history)
+    y_line.set_data(ta, ya)
+    ydot_line.set_data(ta, yda * 0.05)
+
+    if sim_time > ax2.get_xlim()[1] - 1:
+        ax2.set_xlim(sim_time - THROW_INTERVAL * 2, sim_time + THROW_INTERVAL)
+
+    fig.canvas.blit(fig.bbox)
+    fig.canvas.flush_events()
+
+    # ---- Pacing ----
+    sleep_t = DT - (time.perf_counter() - loop_start)
+    if sleep_t > SLEEP_THRESHOLD:
+        time.sleep(sleep_t)
+
+    if not plt.fignum_exists(fig.number):
+        running = False
