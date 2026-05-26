@@ -144,9 +144,7 @@ class Plotter:
         self.timer.add_callback(self.periodic_update)
         self.timer.start()
 
-    # =========================
-    # STATIC FIGURES
-    # =========================
+    # ---- STATIC FIGURES ----
     def create_static_figures(self):
 
         # XY
@@ -299,9 +297,7 @@ class Plotter:
         ax.legend()
         ax.set_title("Estimated delay")
 
-    # =========================
-    # ERROR FIGURE (ONLY DYNAMIC)
-    # =========================
+    # ---- ERROR FIGURE (ONLY DYNAMIC) ----
     def create_error_figure(self):
 
         self.fig_err, self.ax_err = plt.subplots()
@@ -359,9 +355,7 @@ class Plotter:
         self.fig_err.canvas.draw_idle()
         self.fig_err.canvas.flush_events()
 
-    # =========================
-    # SLIDERS
-    # =========================
+    # ---- SLIDERS ----
     def create_sliders(self):
 
         self.fig_slider = plt.figure("Sliders", figsize=(5,3))

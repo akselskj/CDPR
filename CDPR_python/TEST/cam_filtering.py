@@ -3,19 +3,15 @@
 import cv2
 import numpy as np
 
-# =========================
-# Camera setup
-# =========================
+# ---- Camera setup ----
 cap = cv2.VideoCapture(2)
 
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 cap.set(cv2.CAP_PROP_FPS, 60)
 
-# =========================
-# HSV range for red ball
+# ---- HSV range for red ball ----
 # Adjust these values!
-# =========================
 lower_red1 = np.array([0, 120, 70])
 upper_red1 = np.array([10, 255, 255])
 
@@ -39,38 +35,26 @@ while True:
     if not ret:
         break
 
-    # =========================
-    # Step 1: Original frame
-    # =========================
+    # ---- Step 1: Original frame ----
     original = display_frame.copy()
 
-    # =========================
-    # Step 2: Gaussian blur
-    # =========================
+    # ---- Step 2: Gaussian blur ----
     blurred_display = cv2.GaussianBlur(display_frame, (11, 11), 0)
     blurred = cv2.GaussianBlur(process_frame, (11, 11), 0)
 
-    # =========================
-    # Step 3: HSV conversion
-    # =========================
+    # ---- Step 3: HSV conversion ----
     hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
 
-    # =========================
-    # Step 4: Thresholding
-    # =========================
+    # ---- Step 4: Thresholding ----
     mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
     mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
     mask = mask1 + mask2
 
-    # =========================
-    # Step 5: Morphological filtering
-    # =========================
+    # ---- Step 5: Morphological filtering ----
     mask_clean = cv2.erode(mask, kernel, iterations=2)
     mask_clean = cv2.dilate(mask_clean, kernel, iterations=2)
 
-    # =========================
-    # Step 6: Contour detection
-    # =========================
+    # ---- Step 6: Contour detection ----
     contour_img = display_frame.copy()
 
     contours, _ = cv2.findContours(
@@ -89,15 +73,11 @@ while True:
             cv2.circle(contour_img, (int(x), int(y)), int(radius), (255, 0, 0), 2)
             cv2.circle(contour_img, (int(x), int(y)), 5, (0, 0, 255), -1)
 
-    # =========================
-    # Convert grayscale masks to BGR
-    # =========================
+    # ---- Convert grayscale masks to BGR ----
     mask_bgr = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
     mask_clean_bgr = cv2.cvtColor(mask_clean, cv2.COLOR_GRAY2BGR)
 
-    # =========================
-    # Labels
-    # =========================
+    # ---- Labels ----
     def label(img, text):
         cv2.putText(
             img,
@@ -113,9 +93,7 @@ while True:
 
     original = label(original, "Original")
     blurred = label(blurred, "Gaussian Blur")
-    # =========================
-    # HSV channel visualization
-    # =========================
+    # ---- HSV channel visualization ----
 
     h, s, v = cv2.split(hsv)
 
@@ -129,9 +107,7 @@ while True:
     s_vis = cv2.cvtColor(s_vis, cv2.COLOR_GRAY2BGR)
     v_vis = cv2.cvtColor(v_vis, cv2.COLOR_GRAY2BGR)
 
-    # =========================
-    # Larger labels
-    # =========================
+    # ---- Larger labels ----
 
     def big_label(img, text):
 
@@ -155,9 +131,7 @@ while True:
     s_vis = big_label(s_vis, "Saturation")
     v_vis = big_label(v_vis, "Value")
 
-    # =========================
-    # Resize channels
-    # =========================
+    # ---- Resize channels ----
 
     height, width = frame.shape[:2]
 
@@ -193,9 +167,7 @@ while True:
     mask_clean_bgr = label(mask_clean_bgr, "Morphology")
     contour_img = label(contour_img, "Contour Detection")
 
-    # =========================
-    # Resize for display
-    # =========================
+    # ---- Resize for display ----
     scale = 0.4
 
     def resize(img):

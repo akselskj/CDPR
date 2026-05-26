@@ -1,35 +1,43 @@
 import odrive
-import time
-import parameters as p
-import numpy as np
-import geometry as geom
-from odrive.enums import *
-from odrive.utils import dump_errors
+import select
 import sys
-import os
+import termios
+import time
+import tty
 
-if os.name == "nt":                # Windows
-    import msvcrt
-    def kb_hit():
-        return msvcrt.kbhit()
-    def get_key():
-        return msvcrt.getch()
-else:                              # POSIX (Linux, macOS, …)
-    import termios, tty, select
+import numpy as np
+from odrive.enums import (
+    AXIS_STATE_CLOSED_LOOP_CONTROL,
+    AXIS_STATE_IDLE,
+    CONTROL_MODE_POSITION_CONTROL,
+    CONTROL_MODE_TORQUE_CONTROL,
+    CONTROL_MODE_VELOCITY_CONTROL,
+    INPUT_MODE_PASSTHROUGH,
+)
+from odrive.utils import dump_errors
 
-    def kb_hit():
-        dr, _, _ = select.select([sys.stdin], [], [], 0)
-        return bool(dr)
+import geometry as geom
+import parameters as p
 
-    def get_key():
-        fd = sys.stdin.fileno()
-        old = termios.tcgetattr(fd)
-        try:
-            tty.setraw(fd)
-            ch = sys.stdin.read(1)
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old)
-        return ch.encode()          # keep same API as msvcrt.getch()
+
+DEFAULT_MOTOR_INDICES = np.array([0, 1, 2, 3])
+
+
+def kb_hit():
+    ready, _, _ = select.select([sys.stdin], [], [], 0)
+    return bool(ready)
+
+
+def get_key():
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+
+    try:
+        tty.setraw(fd)
+        return sys.stdin.read(1)
+
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 
 def discover_motors():
@@ -77,26 +85,40 @@ def hard_stop(motors):
         axis.requested_state = AXIS_STATE_IDLE
         print(f"Motor {i}: IDLE")
 
+
 def torque_constant(motors):
     return motors[0].config.motor.torque_constant
-    
-def position_control(motors, index = np.array([0, 1, 2, 3])):
-    print("Setting motors to CLOSED LOOP CONTROL")
-    for i in index:
+
+
+def set_closed_loop_mode(motors, motor_indices, control_mode):
+    for i in motor_indices:
         axis = motors[i]
         axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
-        axis.controller.config.control_mode = CONTROL_MODE_POSITION_CONTROL
+        axis.controller.config.control_mode = control_mode
         axis.controller.config.input_mode = INPUT_MODE_PASSTHROUGH
+
+
+def position_control(motors, motor_indices=DEFAULT_MOTOR_INDICES):
+    print("Setting motors to CLOSED LOOP CONTROL")
+    set_closed_loop_mode(
+        motors,
+        motor_indices,
+        CONTROL_MODE_POSITION_CONTROL
+    )
+
+    for i in motor_indices:
         print(f"Motor {i}: CLOSED LOOP CONTROL")
 
 
-def velocity_control(motors, index = np.array([0, 1, 2, 3])):
+def velocity_control(motors, motor_indices=DEFAULT_MOTOR_INDICES):
     print("Setting motors to CLOSED LOOP CONTROL")
-    for i in index:
-        axis = motors[i]
-        axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
-        axis.controller.config.control_mode = CONTROL_MODE_VELOCITY_CONTROL
-        axis.controller.config.input_mode = INPUT_MODE_PASSTHROUGH
+    set_closed_loop_mode(
+        motors,
+        motor_indices,
+        CONTROL_MODE_VELOCITY_CONTROL
+    )
+
+    for i in motor_indices:
         print(f"Motor {i}: VELOCITY CONTROL")
 
 
@@ -126,7 +148,7 @@ def init_tension(motors, tension=0.2):
 
         if kb_hit():
             key = get_key()
-            if key == b'y':
+            if key == "y":
                 break
 
         #time.sleep(dt)

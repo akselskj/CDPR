@@ -85,9 +85,7 @@ class BallTracker:
 
         self.y_target_px = float(px_pt[1])
 
-        # ============================================================
-        # TRACKED STATE
-        # ============================================================
+        # ---- TRACKED STATE ----
 
         self.center = None
 
@@ -183,9 +181,7 @@ class BallTracker:
 
         t = time.perf_counter() - self.t0
 
-        # ============================================================
-        # DETECTION
-        # ============================================================
+        # ---- DETECTION ----
 
         center = self.detect_ball(frame)
         self.center = center
@@ -202,15 +198,11 @@ class BallTracker:
 
         self.frames_without_ball = 0
 
-        # ============================================================
-        # STORE HISTORY
-        # ============================================================
+        # ---- STORE HISTORY ----
 
         self.pts.appendleft((t - p.cam_latency, center))
 
-        # ============================================================
-        # POSITION ESTIMATION
-        # ============================================================
+        # ---- POSITION ESTIMATION ----
 
         pos_raw = self.pixel_to_plane(center)
         self.pos_raw = pos_raw
@@ -224,9 +216,7 @@ class BallTracker:
             + (1 - self.alpha_pos) * self.prev_pos
         )
 
-        # ============================================================
-        # VELOCITY ESTIMATION
-        # ============================================================
+        # ---- VELOCITY ESTIMATION ----
 
         dt = max(dt, 1e-3)
         vel_raw = (self.pos - self.prev_pos) / dt
@@ -242,16 +232,12 @@ class BallTracker:
 
         self.vel = vel.copy()
 
-        # ============================================================
-        # STORE STATE
-        # ============================================================
+        # ---- STORE STATE ----
 
         self.prev_pos = self.pos.copy()
         self.vel_prev = self.vel.copy()
 
-        # ============================================================
-        # HIT PREDICTION
-        # ============================================================
+        # ---- HIT PREDICTION ----
 
         self._predict_hit(frame, t)
     
@@ -267,9 +253,7 @@ class BallTracker:
             self.traj_px
         """
 
-        # ============================================================
-        # REQUIRE ENOUGH HISTORY
-        # ============================================================
+        # ---- REQUIRE ENOUGH HISTORY ----
 
         valid = [p for p in self.pts if p is not None]
 
@@ -282,9 +266,7 @@ class BallTracker:
 
         sample = valid[:20]
 
-        # ============================================================
-        # EXTRACT HISTORY
-        # ============================================================
+        # ---- EXTRACT HISTORY ----
 
         times = np.array([p[0] for p in sample])
         xs = np.array([p[1][0] for p in sample])
@@ -293,9 +275,7 @@ class BallTracker:
         # relative time improves numerical conditioning
         times = times - times[0]
 
-        # ============================================================
-        # POLYNOMIAL FIT
-        # ============================================================
+        # ---- POLYNOMIAL FIT ----
 
         try:
             x_coef = np.polyfit(times, xs, 1)
@@ -310,9 +290,7 @@ class BallTracker:
 
             return
 
-        # ============================================================
-        # INTERSECTION WITH TARGET LINE
-        # ============================================================
+        # ---- INTERSECTION WITH TARGET LINE ----
 
         b2, b1, b0 = y_coef
 
@@ -340,17 +318,13 @@ class BallTracker:
 
         t_future = min(future)
 
-        # ============================================================
-        # PREDICT IMPACT X
-        # ============================================================
+        # ---- PREDICT IMPACT X ----
 
         a1, a0 = x_coef
 
         x_future = a1 * t_future + a0
 
-        # ============================================================
-        # GENERATE TRAJECTORY OVERLAY
-        # ============================================================
+        # ---- GENERATE TRAJECTORY OVERLAY ----
 
         traj_px = []
 
@@ -366,9 +340,7 @@ class BallTracker:
                 int(y_pred)
             ))
 
-        # ============================================================
-        # IMAGE BOUNDS CHECK
-        # ============================================================
+        # ---- IMAGE BOUNDS CHECK ----
 
         h, w = frame.shape[:2]
 
@@ -381,9 +353,7 @@ class BallTracker:
 
             return
 
-        # ============================================================
-        # PIXEL -> PLANE
-        # ============================================================
+        # ---- PIXEL -> PLANE ----
 
         plane = self.pixel_to_plane((
             x_future,
@@ -395,9 +365,7 @@ class BallTracker:
             plane[1]
         ])
 
-        # ============================================================
-        # WORKSPACE SANITY CHECK
-        # ============================================================
+        # ---- WORKSPACE SANITY CHECK ----
 
         if not (
             p.WORKSPACE_X_MIN < p_hit[0] < p.WORKSPACE_X_MAX
@@ -412,9 +380,7 @@ class BallTracker:
 
             return
 
-        # ============================================================
-        # STORE PREDICTION
-        # ============================================================
+        # ---- STORE PREDICTION ----
 
         t_hit = times[0] + t_future + t
 
@@ -646,9 +612,7 @@ def draw_plane_frame(frame, H_inv,
     grid_spacing     : spacing between grid lines [m]
     """
 
-    # ============================================================
-    # GRID
-    # ============================================================
+    # ---- GRID ----
 
     xs = np.arange(x_range[0], x_range[1] + 1e-6, grid_spacing)
     ys = np.arange(y_range[0], y_range[1] + 1e-6, grid_spacing)
@@ -683,9 +647,7 @@ def draw_plane_frame(frame, H_inv,
 
         cv2.line(frame, p1, p2, (80, 80, 80), 1)
 
-    # ============================================================
-    # AXES
-    # ============================================================
+    # ---- AXES ----
 
     pts_plane = np.array([[
         [0.0, 0.0],

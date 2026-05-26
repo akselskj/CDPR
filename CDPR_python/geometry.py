@@ -1,11 +1,16 @@
-import time
 import numpy as np
 import parameters as p
-import utils as utils
-import trajectory_planner as traj
+import utils
 import keyboard
 import mouse
 
+
+"""
+Kinematics and simple trajectory/pose generation helpers.
+"""
+
+
+# KINEMATICS
 
 def cable_jacobian(q, a, b):
     """
@@ -82,7 +87,7 @@ def inverse_kinematics(qd, a, b):
 
     d = np.zeros(4)
 
-    while len(qd)<3:
+    while len(qd) < 3:
         qd = np.append(qd, 0.0)
     theta = qd[2]
     R_BI_d = np.array([
@@ -98,60 +103,70 @@ def inverse_kinematics(qd, a, b):
     return d
 
 
+# TRAJECTORIES
+
+
 def get_q_des(t):
     trajectory_mode = 0  # choose trajectory type
 
-    #-- Circular trajectory ---
+    # Circular trajectory
     if trajectory_mode == 0:
-        x = p.R*np.sin(p.omega*t)
-        y = p.R*np.cos(p.omega*t)-0.05
-        theta = 0.2*np.sin(p.omega*t)
+        x = p.R * np.sin(p.omega * t)
+        y = p.R * np.cos(p.omega * t) - 0.05
+        theta = 0.2 * np.sin(p.omega * t)
         q = np.array([x, y, theta])
 
-        x_dot = p.R*p.omega*np.cos(p.omega*t)
-        y_dot = -p.R*p.omega*np.sin(p.omega*t)
-        theta_dot = p.r_d*p.omega*np.cos(p.omega*t)
+        x_dot = p.R * p.omega * np.cos(p.omega * t)
+        y_dot = -p.R * p.omega * np.sin(p.omega * t)
+        theta_dot = p.r_d * p.omega * np.cos(p.omega * t)
         q_dot = np.array([x_dot, y_dot, theta_dot])
         return q, q_dot
 
-    #-- back and forth trajectory ---
+    # Back and forth trajectory
     elif trajectory_mode == 1:
-        x = p.R*np.sin(p.omega*t)
+        x = p.R * np.sin(p.omega * t)
         y = -0.05
-        theta = p.r_d*np.sin(p.omega*t)
+        theta = p.r_d * np.sin(p.omega * t)
         q = np.array([x, y, theta])
 
-        x_dot = p.R*p.omega*np.cos(p.omega*t)
+        x_dot = p.R * p.omega * np.cos(p.omega * t)
         y_dot = 0
-        theta_dot = p.r_d*p.omega*np.cos(p.omega*t)
+        theta_dot = p.r_d * p.omega * np.cos(p.omega * t)
         q_dot = np.array([x_dot, y_dot, theta_dot])
         return q, q_dot
-    
-    # -- rose pattern trajectory ---
+
+    # Rose pattern trajectory
     elif trajectory_mode == 2:
-        f = t*np.pi*0.5*p.omega
+        f = t * np.pi * 0.5 * p.omega
         a = 0.2
         k = 4
-        x = a*np.cos(k*f)*np.cos(f)
-        y = a*np.cos(k*f)*np.sin(f)
+        x = a * np.cos(k * f) * np.cos(f)
+        y = a * np.cos(k * f) * np.sin(f)
         theta = 0.0
         q = np.array([x, y, theta])
 
-        x_dot = -a*k*np.sin(k*f)*np.cos(f) - a*np.cos(k*f)*np.sin(f)
-        y_dot = -a*k*np.sin(k*f)*np.sin(f) + a*np.cos(k*f)*np.cos(f)
+        x_dot = (
+            -a * k * np.sin(k * f) * np.cos(f)
+            -
+            a * np.cos(k * f) * np.sin(f)
+        )
+        y_dot = (
+            -a * k * np.sin(k * f) * np.sin(f)
+            +
+            a * np.cos(k * f) * np.cos(f)
+        )
         theta_dot = 0.0
         q_dot = np.array([x_dot, y_dot, theta_dot])
 
         return q, q_dot
-    
-    # -- nothing --
+
+    # Fixed pose
     elif trajectory_mode == 3:
         q = np.array([0, -0.1, 0])
         q_dot = np.array([0, 0, 0])
         return q, q_dot
-    
 
-    # -- triangle trajectory (constant speed) ---
+    # Triangle trajectory (constant speed)
     elif trajectory_mode == 4:
 
         # --- triangle definition ---
@@ -159,11 +174,11 @@ def get_q_des(t):
         v = 0.2   # constant speed [m/s]
 
         # triangle vertices (equilateral, centered)
-        h = np.sqrt(3)/2 * L
+        h = np.sqrt(3) / 2 * L
 
-        p0 = np.array([-L/2, -h/3])
-        p1 = np.array([ L/2, -h/3])
-        p2 = np.array([ 0.0,  2*h/3])
+        p0 = np.array([-L / 2, -h / 3])
+        p1 = np.array([L / 2, -h / 3])
+        p2 = np.array([0.0, 2 * h / 3])
 
         points = [p0, p1, p2]
 
@@ -177,16 +192,16 @@ def get_q_des(t):
         if t_mod < T_edge:
             i = 0
             tau = t_mod
-        elif t_mod < 2*T_edge:
+        elif t_mod < 2 * T_edge:
             i = 1
             tau = t_mod - T_edge
         else:
             i = 2
-            tau = t_mod - 2*T_edge
+            tau = t_mod - 2 * T_edge
 
         # current segment
         p_start = points[i]
-        p_end   = points[(i+1) % 3]
+        p_end   = points[(i + 1) % 3]
 
         direction = p_end - p_start
         direction = direction / np.linalg.norm(direction)
@@ -211,7 +226,7 @@ def get_q_des(t):
         q_dot = np.array([x_dot, y_dot, theta_dot])
 
         return q, q_dot
-    
+
     elif trajectory_mode == 5:
         if t % 14 < 7:
             q = np.array([0.15, -0.1, 0])
@@ -221,78 +236,7 @@ def get_q_des(t):
         return q, q_dot
 
 
-
-def get_q_des_ball(t, trajectory = None, last_plan_time=0.0, q = None, q_dot = None, p_hit = None, t_hit = None, last_t_hit = None):
-    # -- ball bouncing trajectory ---
-    time_since_plan = (t > last_plan_time + 0.1) and (t < last_t_hit)
-    past_hit_time = t >= last_t_hit+0.1
-    need_new_traj = trajectory is None
-
-    """
-    if time_since_plan:
-        print(f"Planning new trajectory at t={t:.2f}s, hit in {t_hit - t:.2f}s")
-    if past_hit_time:
-        print(f"Past hit time at t={t:.2f}s",)
-    if need_new_traj:
-        print(f"Need new trajectory at t={t:.2f}s",)"""
-
-    if time_since_plan or past_hit_time or need_new_traj:
-        hit_speed, theta = traj.compute_hit_velocity(p_hit)
-        p_hit = np.array([p_hit[0], p_hit[1], theta])
-        hit_speed = np.array([hit_speed[0], hit_speed[1], 0.0])
-
-        direct_traj = traj.HermiteTrajectory(q, q_dot, p_hit, hit_speed, t_hit-t, t)
-        if traj.is_trajectory_inside_workspace(direct_traj):
-            trajectory = direct_traj
-        
-        else:
-            final_move_duration = 0.2
-
-            displacement = 0.5 * hit_speed * final_move_duration
-
-            wait_point = p_hit - displacement
-
-            # Quick move to wait point
-            move_duration = min(0.4, (t_hit - t) * 0.3)
-            to_wait_traj = traj.HermiteTrajectory(
-                q, q_dot, wait_point, np.zeros(3), move_duration, t
-            )
-
-            remain_duration = (t_hit - t) - move_duration
-            if remain_duration < final_move_duration + 0.05:
-                trajectory = direct_traj
-            else:
-                wait_dur = remain_duration - final_move_duration
-
-                # Final move
-                final_start_t = t + move_duration + wait_dur
-                from_wait_traj = traj.HermiteTrajectory(
-                    wait_point, np.zeros(3), p_hit, hit_speed, final_move_duration, final_start_t
-                )
-
-                # Check if final path stays in workspace (optional but recommended)
-                if not traj.is_trajectory_inside_workspace(from_wait_traj):
-                    print("Warning: final ramp violates workspace – adjust duration or wait point")
-                    # Fallback or shorten duration slightly
-
-                trajectory = {
-                    'type': 'chained',
-                    'to_wait': to_wait_traj,
-                    'wait_point': wait_point,
-                    'wait_start': t + move_duration,
-                    'from_wait_start': final_start_t,
-                    'from_wait': from_wait_traj
-                }
-        last_t_hit = t_hit
-        last_plan_time = t
-    
-    # Evaluate
-    q = traj.evaluate_trajectory(trajectory, t)
-    
-    return q, trajectory, last_plan_time, last_t_hit
-
-
-def input_q_des(q_des, input_mode, screen_center = None):
+def input_q_des(q_des, input_mode, screen_center=None):
     step = 0.005
 
     # ---- keyboard control ----
@@ -313,8 +257,8 @@ def input_q_des(q_des, input_mode, screen_center = None):
             move[2] -= step
 
         q_des += move
-    
-    # ---- Mouse control ----
+
+    # Mouse control
     if input_mode == 1:
         scale = 0.00005
 
@@ -331,22 +275,28 @@ def input_q_des(q_des, input_mode, screen_center = None):
     return q_des
 
 
+# CABLE / ENCODER CONVERSION
+
 
 def phi_from_d(d_des, phi0):
     phi = []
     for i in range(4):
         phi.append(
-            p.motor_signs[i] * d_des[i] / (2*np.pi*p.r_d) + phi0[i]
+            p.motor_signs[i] * d_des[i] / (2 * np.pi * p.r_d) + phi0[i]
         )
     return phi
+
 
 def d_from_phi(phi, phi0):
     d = []
     for i in range(4):
         d.append(
-            (phi[i]-phi0[i]) * (2*np.pi*p.r_d) * p.motor_signs[i]
+            (phi[i] - phi0[i]) * (2 * np.pi * p.r_d) * p.motor_signs[i]
         )
     return d
+
+
+# DIRECT KINEMATICS
 
 
 def direct_kinematics(l_act, v_cable, a, b, q_prev):
@@ -464,4 +414,3 @@ def direct_kinematics(l_act, v_cable, a, b, q_prev):
     qdot_est = -np.linalg.pinv(A) @ v_cable
 
     return q_est, qdot_est
-

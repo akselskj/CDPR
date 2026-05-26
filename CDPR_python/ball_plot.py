@@ -2,9 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-# ============================================================
-# CONFIG
-# ============================================================
+# ---- CONFIG ----
 
 T_START = 11.61
 T_WINDOW = 30      # None = full log
@@ -19,9 +17,7 @@ mpl.rcParams.update({
     "axes.grid": True,
 })
 
-# ============================================================
-# HELPERS
-# ============================================================
+# ---- HELPERS ----
 
 def crop_time_window(t, data_dict, t_start, t_window):
 
@@ -71,17 +67,13 @@ def crop_time_window(t, data_dict, t_start, t_window):
     return t_new, data_new
 
 
-# ============================================================
-# PLOTTER
-# ============================================================
+# ---- PLOTTER ----
 
 class BallPlotter:
 
     def __init__(self, data):
 
-        # ====================================================
-        # LOAD DATA
-        # ====================================================
+        # ---- LOAD DATA ----
 
         t = data["t"]
 
@@ -120,9 +112,7 @@ class BallPlotter:
         self.p_hit = cropped.get("p_hit", None)
         self.q = cropped.get("q", None)
 
-        # ====================================================
-        # CREATE FIGURES
-        # ====================================================
+        # ---- CREATE FIGURES ----
 
         self.create_xy_plot()
 
@@ -134,9 +124,7 @@ class BallPlotter:
 
         self.create_hit_prediction_plot()
 
-    # ========================================================
-    # XY TRAJECTORY
-    # ========================================================
+    # ---- XY TRAJECTORY ----
 
     def create_xy_plot(self):
 
@@ -163,9 +151,7 @@ class BallPlotter:
 
         ax.axis("equal")
 
-    # ========================================================
-    # POSITION VS TIME
-    # ========================================================
+    # ---- POSITION VS TIME ----
 
     def create_position_plot(self):
 
@@ -217,9 +203,7 @@ class BallPlotter:
         ax.set_xlabel("Time [s]")
         ax.set_ylabel("Position [m]")
 
-        # ========================================================
-        # TRACKING ERROR METRICS
-        # ========================================================
+        # ---- TRACKING ERROR METRICS ----
 
         if self.pos_ref is not None:
 
@@ -264,9 +248,7 @@ class BallPlotter:
 
         ax.legend()
 
-    # ========================================================
-    # VELOCITY VS TIME
-    # ========================================================
+    # ---- VELOCITY VS TIME ----
 
     def create_velocity_plot(self):
 
@@ -321,9 +303,7 @@ class BallPlotter:
 
         ax.legend()
 
-    # ========================================================
-    # SPEED MAGNITUDE
-    # ========================================================
+    # ---- SPEED MAGNITUDE ----
 
     def create_speed_plot(self):
 
@@ -343,9 +323,7 @@ class BallPlotter:
         ax.set_xlabel("Time [s]")
         ax.set_ylabel("Speed [m/s]")
 
-    # ========================================================
-    # HIT PREDICTION
-    # ========================================================
+    # ---- HIT PREDICTION ----
 
     def create_hit_prediction_plot(self):
 
@@ -375,9 +353,7 @@ class BallPlotter:
         ax.legend()
 
 
-# ============================================================
-# MAIN
-# ============================================================
+# ---- MAIN ----
 
 def run(filepath):
 

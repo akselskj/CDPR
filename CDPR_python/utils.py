@@ -1,12 +1,19 @@
-import numpy as np
-import parameters as p
-import geometry as geom
-import time
+import os
+from datetime import datetime
+
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
-from matplotlib.widgets import RadioButtons
+import numpy as np
 
+import parameters as p
+
+"""
+this file contains helper functions
+"""
+
+
+# MATH / KINEMATICS
 
 def structure_matrix(a, b, q):
     """
@@ -133,26 +140,85 @@ def select_force_controlled_cables(a, b, q_des, j_force_current, gamma):
 
     return j_force_new, sigma_min
 
+
 def rot(theta):
     return np.array([
         [np.cos(theta), -np.sin(theta)],
         [np.sin(theta),  np.cos(theta)]
     ])
 
+
 def cable_length_from_encoder(phi, phi0, i):
     return p.motor_signs[i] * (phi0[i] - phi) * 2*np.pi*p.r_d
+
 
 def encoder_from_cable_length(d, phi0, i):
     return p.motor_signs[i] * d / (2*np.pi*p.r_d) + phi0[i]
 
 
+# LOGGING
+
+def save_experiment_data(filename_prefix,
+                         t_log,
+                         d_des_log,
+                         d_log,
+                         q_des_log,
+                         q_est_log,
+                         torque_log,
+                         voltage_log,
+                         force_log=None,
+                         dt_log=None,
+                         read_log=None,
+                         send_log=None,
+                         compute_log=None):
+
+    # ---- convert to numpy ----
+    data = {
+        "t": np.array(t_log),
+        "d_des": np.array(d_des_log),
+        "d": np.array(d_log),
+        "q_des": np.array(q_des_log),
+        "q_est": np.array(q_est_log),
+        "torque": np.array(torque_log),
+        "voltage": np.array(voltage_log),
+    }
+
+    # ---- optional logs ----
+    if force_log is not None:
+        data["force"] = np.array(force_log)
+
+    if dt_log is not None:
+        data["dt"] = np.array(dt_log)
+
+    if read_log is not None:
+        data["read_time"] = np.array(read_log)
+
+    if send_log is not None:
+        data["send_time"] = np.array(send_log)
+
+    if compute_log is not None:
+        data["compute_time"] = np.array(compute_log)
+
+    # ---- create filename ----
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{filename_prefix}_{timestamp}.npz"
+
+    # ---- optional: save in folder ----
+    os.makedirs("logs", exist_ok=True)
+    filepath = os.path.join("logs", filename)
+
+    # ---- save ----
+    np.savez_compressed(filepath, **data)
+
+    print(f"Saved log to: {filepath}")
+
+
+# PLOTTING
+
 
 def plot_trajectory(t_log, d_des_log, d_log, q_des_log, q_est_log,
                     torque_log, voltage_log, force_log=None,
                     dt_log=None, exec_dt_log=None):
-
-    import numpy as np
-    import matplotlib.pyplot as plt
 
     # ---- Convert to arrays ----
     q_des_log = np.array(q_des_log)
@@ -283,7 +349,7 @@ def plot_trajectory(t_log, d_des_log, d_log, q_des_log, q_est_log,
         # compensated
         plt.plot(t_log, (d_des_log[:,i] - d_log_comp[:,i])*100,
                  label=f"Cable {i} compensated")
-    
+
     plt.title("Cable Length Error (raw vs compensated)")
     plt.xlabel("time [s]")
     plt.ylabel("Length [cm]")
@@ -345,79 +411,16 @@ def plot_trajectory(t_log, d_des_log, d_log, q_des_log, q_est_log,
     plt.show()
 
 
-
-
-import numpy as np
-from datetime import datetime
-import os
-
-def save_experiment_data(filename_prefix,
-                         t_log,
-                         d_des_log,
-                         d_log,
-                         q_des_log,
-                         q_est_log,
-                         torque_log,
-                         voltage_log,
-                         force_log=None,
-                         dt_log=None,
-                         read_log=None,
-                         send_log=None,
-                         compute_log=None):
-
-    # ---- convert to numpy ----
-    data = {
-        "t": np.array(t_log),
-        "d_des": np.array(d_des_log),
-        "d": np.array(d_log),
-        "q_des": np.array(q_des_log),
-        "q_est": np.array(q_est_log),
-        "torque": np.array(torque_log),
-        "voltage": np.array(voltage_log),
-    }
-
-    # ---- optional logs ----
-    if force_log is not None:
-        data["force"] = np.array(force_log)
-
-    if dt_log is not None:
-        data["dt"] = np.array(dt_log)
-
-    if read_log is not None:
-        data["read_time"] = np.array(read_log)
-
-    if send_log is not None:
-        data["send_time"] = np.array(send_log)
-
-    if compute_log is not None:
-        data["compute_time"] = np.array(compute_log)
-
-    # ---- create filename ----
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{filename_prefix}_{timestamp}.npz"
-
-    # ---- optional: save in folder ----
-    os.makedirs("logs", exist_ok=True)
-    filepath = os.path.join("logs", filename)
-
-    # ---- save ----
-    np.savez_compressed(filepath, **data)
-
-    print(f"Saved log to: {filepath}")
-
-
-
-
-
 _live_plot = {
     "fig": None,
     "ax": None,
     "platform": None,
-    "cables": None,    
+    "cables": None,
     "text_pose": None,
     "text_lenghts": None,
     "initialized": False,
 }
+
 
 def init_live_cdpr_plot():
     """
@@ -541,7 +544,7 @@ def update_live_cdpr_plot(q, d_lengths):
             [a[0, i], C[0, i]],
             [a[1, i], C[1, i]]
         )
-    
+
     # Update pose text (top-left)
     pose_str = (
         f"Platform Pose:\n"

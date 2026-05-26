@@ -1,16 +1,27 @@
 import motor_actions as motor
 import geometry as geom
 import parameters as p
-import utils as utils
-import trajectory_planner as traj
+import utils
 import numpy as np
 import matplotlib.pyplot as plt
 import time
 import threading
 import mouse
 from odrive.utils import dump_errors
-from odrive.enums import *
+from odrive.enums import (
+    AXIS_STATE_CLOSED_LOOP_CONTROL,
+    CONTROL_MODE_POSITION_CONTROL,
+    CONTROL_MODE_TORQUE_CONTROL,
+    INPUT_MODE_PASSTHROUGH,
+)
 from collections import deque
+
+
+def check_motor_states(odrvs, motors):
+    for i, axis in motors.items():
+        if axis.current_state != AXIS_STATE_CLOSED_LOOP_CONTROL:
+            dump_errors(odrvs[i])
+            raise Exception(f"Motor {i} not in CLOSED LOOP CONTROL")
 
 
 def run_hybrid_control_loop(odrvs, motors, phi0, Kt):
@@ -63,10 +74,7 @@ def run_hybrid_control_loop(odrvs, motors, phi0, Kt):
             t = loop_start - t0
 
             # ---- Safety check ----
-            for i, axis in motors.items():
-                if axis.current_state != AXIS_STATE_CLOSED_LOOP_CONTROL:
-                    dump_errors(odrvs[i])
-                    raise Exception(f"Motor {i} not in CLOSED LOOP CONTROL")
+            check_motor_states(odrvs, motors)
 
             # ---- Trajectory ----
             q_des, q_dot_des = geom.get_q_des(t)
@@ -74,7 +82,7 @@ def run_hybrid_control_loop(odrvs, motors, phi0, Kt):
 
             for i in range(4):
                 d_des[i] = d_0[i] - d_abs[i]
-                d_des[i] = traj.voltage_regulator(odrvs[i], d_des[i])
+                d_des[i] = motor.voltage_regulator(odrvs[i], d_des[i])
 
             phi_des = np.array(geom.phi_from_d(d_des, phi0))
 
@@ -269,10 +277,7 @@ def run_position_control_loop(odrvs, motors, phi0, Kt):
 
             if loop_count % 50 == 0:
                 ti = time.perf_counter()
-                for i, axis in motors.items():
-                    if axis.current_state != AXIS_STATE_CLOSED_LOOP_CONTROL:
-                        dump_errors(odrvs[i])
-                        raise Exception(f"Motor {i} not in CLOSED LOOP CONTROL")
+                check_motor_states(odrvs, motors)
                 read = time.perf_counter()-ti
             else:
                 read = 0
@@ -284,7 +289,7 @@ def run_position_control_loop(odrvs, motors, phi0, Kt):
             ti = time.perf_counter()
             for i in range(4):
                 d_des[i] = d_0[i] - d_abs[i]
-                d_des[i] = traj.voltage_regulator(odrvs[i], d_des[i])
+                d_des[i] = motor.voltage_regulator(odrvs[i], d_des[i])
 
                 axis = motors[i]
                 d_sample[i] = d_0[i]+utils.cable_length_from_encoder(
@@ -457,10 +462,7 @@ def run_velocity_control_loop(odrvs, motors, phi0, Kt):
             t = time.time()-t0
             loop_start = time.perf_counter()
 
-            for i, axis in motors.items():
-                if axis.current_state != AXIS_STATE_CLOSED_LOOP_CONTROL:
-                    dump_errors(odrvs[i])
-                    raise Exception(f"Motor {i} not in CLOSED LOOP CONTROL")
+            check_motor_states(odrvs, motors)
 
 
             q_des, q_dot_des = geom.get_q_des(t)
@@ -643,10 +645,7 @@ def run_keyboard_control_loop(odrvs, motors, phi0, Kt):
             t = time.perf_counter()-t0
             loop_start = time.perf_counter()
 
-            for i, axis in motors.items():
-                if axis.current_state != AXIS_STATE_CLOSED_LOOP_CONTROL:
-                    dump_errors(odrvs[i])
-                    raise Exception(f"Motor {i} not in CLOSED LOOP CONTROL")
+            check_motor_states(odrvs, motors)
 
             q_des = geom.input_q_des(q_des, input_mode, screen_center)
             
@@ -654,7 +653,7 @@ def run_keyboard_control_loop(odrvs, motors, phi0, Kt):
 
             for i in range(4):
                 d_des[i] = d_0[i] - d_abs[i]
-                d_des[i] = traj.voltage_regulator(odrvs[i], d_des[i])
+                d_des[i] = motor.voltage_regulator(odrvs[i], d_des[i])
 
                 axis = motors[i]
                 d_sample[i] = d_0[i]+utils.cable_length_from_encoder(

@@ -21,6 +21,9 @@ logs/
 *.mp4
 *.avi
 *.mov
+*.png
+*.jpg
+*.jpeg
 
 # OS files
 .DS_Store

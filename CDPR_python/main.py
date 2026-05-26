@@ -1,15 +1,20 @@
-from motor_actions import *
-from control_loop import *
-from mock_motors import *
-#import ping_pong_bot as ping
-import ping_test as ping
-import parameters as p
 import gc
-gc.disable()
-import psutil, os
-pr = psutil.Process(os.getpid())
-pr.nice(0)
+import os
+import time
 
+import numpy as np
+import psutil
+
+import control_loop as ctrl
+import geometry as geom
+import motor_actions as motor
+import parameters as p
+import ping_pong_bot as ping
+
+
+"""
+Connect to the motor drivers and provide a menu for running robot modes.
+"""
 
 
 def print_menu():
@@ -30,18 +35,38 @@ def print_menu():
     print("exit : Exit program")
 
 
-def main():
-    motors, odrvs = discover_motors()
-    print("CDPR control started")
-    d_ref = geom.inverse_kinematics([0,0,0], p.a, p.b)
+def configure_runtime():
+    gc.disable()
+
+    process = psutil.Process(os.getpid())
+    process.nice(0)
+
+
+def estimate_home_encoder_offsets(motors):
+    d_ref = geom.inverse_kinematics([0, 0, 0], p.a, p.b)
     d_home = geom.inverse_kinematics(p.home, p.a, p.b)
     delta_d = d_ref - d_home
+
     phi0 = []
     for i, axis in motors.items():
-        phi0.append(axis.pos_estimate - delta_d[i]*p.motor_signs[i]/(2*np.pi*p.r_d))
-    
+        offset = (
+            axis.pos_estimate
+            -
+            delta_d[i] * p.motor_signs[i] / (2 * np.pi * p.r_d)
+        )
+        phi0.append(offset)
 
-    Kt = torque_constant(motors)
+    return phi0
+
+
+def main():
+    configure_runtime()
+
+    motors, odrvs = motor.discover_motors()
+    print("CDPR control started")
+
+    phi0 = estimate_home_encoder_offsets(motors)
+    Kt = motor.torque_constant(motors)
 
     while True:
 
@@ -50,67 +75,59 @@ def main():
 
         if user_input == "exit":
             print("Exiting program...")
-            hard_stop(motors)
+            motor.hard_stop(motors)
             break
 
         elif user_input.isdigit():
             cmd = int(user_input)
 
             if cmd == 1:
-                phi0 = init_tension(motors, 0.2)
-                print_motor_positions(motors)
+                phi0 = motor.init_tension(motors, 0.2)
+                motor.print_motor_positions(motors)
                 print("phi0 = ", phi0)
 
             elif cmd == 2:
-                run_position_control_loop(odrvs, motors, phi0, Kt)
+                ctrl.run_position_control_loop(odrvs, motors, phi0, Kt)
 
             elif cmd == 3:
-                run_hybrid_control_loop(odrvs, motors, phi0, Kt)
+                ctrl.run_hybrid_control_loop(odrvs, motors, phi0, Kt)
 
             elif cmd == 4:
                 ping.ping_pong_bot(odrvs, motors, phi0)
 
             elif cmd == 5:
-                # this is not working correctly
-                run_velocity_control_loop(odrvs, motors, phi0, Kt)
+                # This is not working correctly.
+                ctrl.run_velocity_control_loop(odrvs, motors, phi0, Kt)
 
             elif cmd == 6:
-                hard_stop(motors)
+                motor.hard_stop(motors)
 
             elif cmd == 7:
-                smooth_move_to_pose(motors, phi0, p.home)
+                ctrl.smooth_move_to_pose(motors, phi0, p.home)
                 time.sleep(0.5)
-                hard_stop(motors)
-                                                
+                motor.hard_stop(motors)
+
             elif cmd == 8:
-                user_move_to_pose(motors, phi0)
+                ctrl.user_move_to_pose(motors, phi0)
                 time.sleep(0.5)
-                hard_stop(motors)
-            
+                motor.hard_stop(motors)
+
             elif cmd == 9:
-                taut_observer_mode(motors, phi0, 0.2)
+                # Direct kinematics test: move the platform manually and compare with the plot.
+                ctrl.taut_observer_mode(motors, phi0, 0.2)
 
             elif cmd == 10:
-                clear_all_errors(odrvs)
+                motor.clear_all_errors(odrvs)
 
             elif cmd == 11:
-                # this is not nesecary currently as the USB comunication is the bottleneck, not code runtime.
-                # could be relevant if com channel is changed
-                run_multithred_control(odrvs, motors, phi0, Kt)
-            
+                # USB communication is currently the bottleneck, but this may be useful later.
+                ctrl.run_multithred_control(odrvs, motors, phi0, Kt)
+
             elif cmd == 12:
-                run_keyboard_control_loop(odrvs, motors, phi0, Kt)
-            
+                ctrl.run_keyboard_control_loop(odrvs, motors, phi0, Kt)
+
             elif cmd == 13:
                 ping.balancing_bot(odrvs, motors, phi0)
-
-            elif cmd == 14:
-                ping.throw_ball(motors, phi0)
-
-            elif cmd == 15:
-                # This mode allows you to live tune the balancing PD, 
-                # the other balancing mode is better when the tune is done
-                ping.ball_balancing(odrvs, motors, phi0)    
 
             else:
                 print("Unknown command")
@@ -119,4 +136,5 @@ def main():
             print("Invalid input")
 
 
-main()
+if __name__ == "__main__":
+    main()
