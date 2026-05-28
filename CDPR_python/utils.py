@@ -437,6 +437,8 @@ def init_live_cdpr_plot():
     ax.set_aspect("equal")
     ax.set_xlim(-1.0, 1.0)
     ax.set_ylim(-1.0, 1.0)
+    ax.set_ylabel("y [m]")
+    ax.set_xlabel("x [m]")
     ax.set_title("CDPR – Live Pose Estimate")
     ax.grid(True, alpha=0.3)
 

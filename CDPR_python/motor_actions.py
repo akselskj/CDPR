@@ -203,3 +203,15 @@ def clear_all_errors(odrvs):
         dump_errors(odrv)
         odrv.clear_errors()
         print(f"ODRV {i} errors cleared")
+
+
+
+def voltage_regulator(odrv, d_des, V_THRESH=24.5, BIAS_MAX=0.02, K_V=0.005):
+    Vbus = odrv.vbus_voltage
+    if Vbus > V_THRESH:
+        delta_d = min(K_V * (Vbus - V_THRESH), BIAS_MAX)
+    else:
+        delta_d = 0.0
+
+    d_des -= delta_d
+    return d_des

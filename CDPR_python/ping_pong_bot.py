@@ -2,8 +2,6 @@ import motor_actions as motor
 import camera as cam
 import parameters as p
 import geometry as geom
-import trajectory_planner as traj
-import utils
 import cv2
 import control_loop as ctrl
 
@@ -300,7 +298,7 @@ class BallBalanceController:
 
         for i in range(4):
             self.d_des[i] = self.d_0[i] - d_abs[i]
-            self.d_des[i] = traj.voltage_regulator(
+            self.d_des[i] = motor.voltage_regulator(
                 self.odrvs[i],
                 self.d_des[i]
             )
@@ -736,7 +734,7 @@ class BallBounceController:
                 self.d_0[i] - d_abs[i]
             )
 
-            self.d_des[i] = traj.voltage_regulator(
+            self.d_des[i] = motor.voltage_regulator(
                 self.odrvs[i],
                 self.d_des[i]
             )
@@ -1039,7 +1037,7 @@ def run_master_loop(
     prev_start = time.perf_counter()
 
 
-    MAX_BOUNCE_TIME = 10.0
+    MAX_BOUNCE_TIME = 65
 
     # MAIN LOOP
 

@@ -384,4 +384,4 @@ def run(filepath):
 
 
 if __name__ == "__main__":
-    run("logs/controller_tests/circle_hybrid_12_20260428_161339.npz")
+    run("logs/controller_tests/dt_test_position_00_20260508_150615.npz")

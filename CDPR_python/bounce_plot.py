@@ -124,6 +124,8 @@ class BallPlotter:
 
         self.create_hit_prediction_plot()
 
+        self.create_bounce_analysis_plot()
+
     # ---- XY TRAJECTORY ----
 
     def create_xy_plot(self):
@@ -388,6 +390,224 @@ class BallPlotter:
         ax.set_title("Predicted impact position")
         ax.set_xlabel("Time [s]")
         ax.set_ylabel("Position [m]")
+
+        ax.legend()
+
+        # ---- BOUNCE ANALYSIS ----
+
+    def create_bounce_analysis_plot(self):
+
+        y = self.ball_pos[:, 1]
+
+        # ------------------------------------------------------------
+        # FIND LOCAL MINIMA (impacts)
+        # ------------------------------------------------------------
+
+        impact_idx = []
+
+        MIN_BOUNCE_DT = 0.25   # seconds between impacts
+
+        last_impact_t = -np.inf
+
+        for i in range(1, len(y)-1):
+
+            is_minimum = (
+                y[i] < y[i-1]
+                and
+                y[i] < y[i+1]
+            )
+
+            if not is_minimum:
+                continue
+
+            t_now = self.t[i]
+
+            # reject duplicate minima
+            if (t_now - last_impact_t) < MIN_BOUNCE_DT:
+                continue
+
+            impact_idx.append(i)
+
+            last_impact_t = t_now
+
+        impact_idx = np.array(impact_idx)
+
+        # remove initial throw impact
+        impact_idx = impact_idx[1:]
+
+        # require enough bounces
+        if len(impact_idx) < 2:
+            print("Not enough impacts detected")
+            return
+
+        # ------------------------------------------------------------
+        # FIND APEX AFTER EACH IMPACT
+        # ------------------------------------------------------------
+
+        bounce_heights = []
+
+        impact_points = []
+
+        bounce_numbers = []
+
+        for k in range(len(impact_idx)-1):
+
+            i0 = impact_idx[k]
+            i1 = impact_idx[k+1]
+
+            # segment between impacts
+            segment = y[i0:i1]
+
+            if len(segment) == 0:
+                continue
+
+            # local apex
+            local_max_idx = np.argmax(segment)
+
+            apex_idx = i0 + local_max_idx
+
+            y_impact = y[i0]
+            y_apex = y[apex_idx]
+
+            height = y_apex - y_impact
+
+            MIN_HEIGHT = 0.03  # 3 cm
+
+            if height < MIN_HEIGHT:
+                continue
+
+            bounce_heights.append(height)
+
+            impact_points.append(self.ball_pos[i0, 1])
+
+            bounce_numbers.append(k)
+
+        bounce_heights = np.array(bounce_heights)
+        impact_points = np.array(impact_points)
+
+        # ------------------------------------------------------------
+        # STATISTICS
+        # ------------------------------------------------------------
+
+        mean_height = np.mean(bounce_heights)
+        std_height = np.std(bounce_heights)
+
+        min_height = np.min(bounce_heights)
+        max_height = np.max(bounce_heights)
+
+        mean_impact = np.mean(impact_points)
+        std_impact = np.std(impact_points)
+
+        print("\n=== Bounce statistics ===")
+
+        print(
+            f"Bounce height:\n"
+            f"  Mean: {mean_height*100:.2f} cm\n"
+            f"  Std:  {std_height*100:.2f} cm\n"
+            f"  Min:  {min_height*100:.2f} cm\n"
+            f"  Max:  {max_height*100:.2f} cm"
+        )
+
+        print(
+            f"\nImpact point x:\n"
+            f"  Mean: {mean_impact*100:.2f} cm\n"
+            f"  Std:  {std_impact*100:.2f} cm"
+        )
+
+        # ------------------------------------------------------------
+        # PLOT
+        # ------------------------------------------------------------
+
+        fig, ax = plt.subplots()
+
+        ax.plot(
+            bounce_numbers,
+            bounce_heights * 100,
+            marker="o"
+        )
+
+        ax.axhline(
+            mean_height * 100,
+            linestyle="--",
+            label=f"Mean = {mean_height*100:.1f} cm"
+        )
+
+        text = (
+            f"Mean: {mean_height*100:.1f} cm\n"
+            f"Std: {std_height*100:.1f} cm\n"
+            f"Min: {min_height*100:.1f} cm\n"
+            f"Max: {max_height*100:.1f} cm"
+        )
+
+        ax.text(
+            0.3,
+            0.98,
+            text,
+            transform=ax.transAxes,
+            verticalalignment="top",
+            bbox=dict(
+                boxstyle="round",
+                facecolor="white",
+                alpha=0.8
+            )
+        )
+
+        ax.set_title("Bounce height vs bounce number")
+
+        ax.set_xlabel("Bounce number")
+
+        ax.set_ylabel("Bounce height [cm]")
+
+        ax.legend()
+
+
+        # ------------------------------------------------------------
+        # IMPACT POINT PLOT
+        # ------------------------------------------------------------
+
+        fig, ax = plt.subplots()
+
+        impact_cm = impact_points * 100
+
+        ax.plot(
+            bounce_numbers,
+            impact_cm,
+            marker="o",
+            color="tab:orange"
+        )
+
+        ax.axhline(
+            mean_impact * 100,
+            linestyle="--",
+            color="tab:orange",
+            label=f"Mean = {mean_impact*100:.1f} cm"
+        )
+
+        impact_text = (
+            f"Mean: {mean_impact*100:.1f} cm\n"
+            f"Std: {std_impact*100:.1f} cm\n"
+            f"Min: {np.min(impact_cm):.1f} cm\n"
+            f"Max: {np.max(impact_cm):.1f} cm"
+        )
+
+        ax.text(
+            0.42,
+            0.98,
+            impact_text,
+            transform=ax.transAxes,
+            verticalalignment="top",
+            bbox=dict(
+                boxstyle="round",
+                facecolor="white",
+                alpha=0.8
+            )
+        )
+
+        ax.set_title("Impact height vs bounce number")
+
+        ax.set_xlabel("Bounce number")
+
+        ax.set_ylabel("Impact position y [cm]")
 
         ax.legend()
 

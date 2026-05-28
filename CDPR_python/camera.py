@@ -3,7 +3,6 @@ import numpy as np
 import time
 import parameters as p
 from collections import deque
-import geometry as geom
 import threading
 import sys, io
 
