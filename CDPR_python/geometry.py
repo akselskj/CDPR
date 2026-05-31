@@ -109,35 +109,66 @@ def inverse_kinematics(qd, a, b):
 def get_q_des(t):
     trajectory_mode = 0  # choose trajectory type
 
-    # Circular trajectory
-    if trajectory_mode == 0:
-        x = p.R * np.sin(p.omega * t)
-        y = p.R * np.cos(p.omega * t) - 0.05
-        theta = 0.2 * np.sin(p.omega * t)
+    R = 0.15    # circle radius [m]
+    omega = 2   # angular velocity [rad/s] 
+
+    # movement demo trajectory
+    if trajectory_mode == -1:
+        if t<2*np.pi:
+            omega = 2
+        elif t<3*np.pi:
+            omega = 6
+        elif t<4*np.pi:
+            omega = 12
+        else:
+            end = 4*np.pi
+            x = R * np.sin(12 * end)
+            y = R * np.cos(12 * end) - 0.05
+            theta = 0.2 * np.sin(12 * end)
+            q = np.array([x, y, theta])
+            q_dot = np.array([0, 0, 0])
+            return q, q_dot
+
+        x = R * np.sin(omega * t)
+        y = R * np.cos(omega * t) - 0.05
+        theta = 0.2 * np.sin(omega * t)
         q = np.array([x, y, theta])
 
-        x_dot = p.R * p.omega * np.cos(p.omega * t)
-        y_dot = -p.R * p.omega * np.sin(p.omega * t)
-        theta_dot = p.r_d * p.omega * np.cos(p.omega * t)
+        x_dot = R * omega * np.cos(omega * t)
+        y_dot = -R * omega * np.sin(omega * t)
+        theta_dot = p.r_d * omega * np.cos(omega * t)
+        q_dot = np.array([x_dot, y_dot, theta_dot])
+        return q, q_dot
+
+    # Circular trajectory
+    if trajectory_mode == 0:
+        x = R * np.sin(omega * t)
+        y = R * np.cos(omega * t) - 0.05
+        theta = 0.2 * np.sin(omega * t)
+        q = np.array([x, y, theta])
+
+        x_dot = R * omega * np.cos(omega * t)
+        y_dot = -R * omega * np.sin(omega * t)
+        theta_dot = p.r_d * omega * np.cos(omega * t)
         q_dot = np.array([x_dot, y_dot, theta_dot])
         return q, q_dot
 
     # Back and forth trajectory
     elif trajectory_mode == 1:
-        x = p.R * np.sin(p.omega * t)
+        x = R * np.sin(omega * t)
         y = -0.05
-        theta = p.r_d * np.sin(p.omega * t)
+        theta = p.r_d * np.sin(omega * t)
         q = np.array([x, y, theta])
 
-        x_dot = p.R * p.omega * np.cos(p.omega * t)
+        x_dot = R * omega * np.cos(omega * t)
         y_dot = 0
-        theta_dot = p.r_d * p.omega * np.cos(p.omega * t)
+        theta_dot = p.r_d * omega * np.cos(omega * t)
         q_dot = np.array([x_dot, y_dot, theta_dot])
         return q, q_dot
 
     # Rose pattern trajectory
     elif trajectory_mode == 2:
-        f = t * np.pi * 0.5 * p.omega
+        f = t * np.pi * 0.5 * omega
         a = 0.2
         k = 4
         x = a * np.cos(k * f) * np.cos(f)
@@ -171,7 +202,7 @@ def get_q_des(t):
 
         # --- triangle definition ---
         L = 0.2  # side length [m]
-        v = 0.2   # constant speed [m/s]
+        v = 0.6   # constant speed [m/s]
 
         # triangle vertices (equilateral, centered)
         h = np.sqrt(3) / 2 * L

@@ -1,30 +1,17 @@
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
+# Exclude everything at root level
+*
 
-# Virtual env
-venv/
-.env/
-robotics-env/
+# Except .gitignore and CDPR_python/
+!.gitignore
+!CDPR_python/
 
-# VSCode
-.vscode/
+# Allow all files inside CDPR_python
+!CDPR_python/**
 
-# Logs
-logs/
-*.npz
-*.csv
-
-# Images/videos
-*.mp4
-*.avi
-*.mov
-*.png
-*.jpg
-*.jpeg
-
-# OS files
-.DS_Store
-Thumbs.db
+# But ignore these inside CDPR_python
+CDPR_python/__pycache__/
+CDPR_python/**/__pycache__/
+CDPR_python/**/*.pyc
+CDPR_python/**/*.mov
+CDPR_python/**/*.avi
+CDPR_python/**/*.mp4

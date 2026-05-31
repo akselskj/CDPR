@@ -82,7 +82,7 @@ def run_hybrid_control_loop(odrvs, motors, phi0, Kt):
 
             for i in range(4):
                 d_des[i] = d_0[i] - d_abs[i]
-                d_des[i] = motor.voltage_regulator(odrvs[i], d_des[i])
+                #self.d_des[i] = motor.voltage_regulator(self.odrvs[i],self.d_des[i])
 
             phi_des = np.array(geom.phi_from_d(d_des, phi0))
 
@@ -289,7 +289,7 @@ def run_position_control_loop(odrvs, motors, phi0, Kt):
             ti = time.perf_counter()
             for i in range(4):
                 d_des[i] = d_0[i] - d_abs[i]
-                d_des[i] = motor.voltage_regulator(odrvs[i], d_des[i])
+                #self.d_des[i] = motor.voltage_regulator(self.odrvs[i],self.d_des[i])
 
                 axis = motors[i]
                 d_sample[i] = d_0[i]+utils.cable_length_from_encoder(
@@ -653,7 +653,7 @@ def run_keyboard_control_loop(odrvs, motors, phi0, Kt):
 
             for i in range(4):
                 d_des[i] = d_0[i] - d_abs[i]
-                d_des[i] = motor.voltage_regulator(odrvs[i], d_des[i])
+                #self.d_des[i] = motor.voltage_regulator(self.odrvs[i],self.d_des[i])
 
                 axis = motors[i]
                 d_sample[i] = d_0[i]+utils.cable_length_from_encoder(

@@ -298,10 +298,8 @@ class BallBalanceController:
 
         for i in range(4):
             self.d_des[i] = self.d_0[i] - d_abs[i]
-            self.d_des[i] = motor.voltage_regulator(
-                self.odrvs[i],
-                self.d_des[i]
-            )
+            #self.d_des[i] = motor.voltage_regulator(self.odrvs[i],self.d_des[i])
+
 
         phi_des = geom.phi_from_d(
             self.d_des,
@@ -734,10 +732,8 @@ class BallBounceController:
                 self.d_0[i] - d_abs[i]
             )
 
-            self.d_des[i] = motor.voltage_regulator(
-                self.odrvs[i],
-                self.d_des[i]
-            )
+            #self.d_des[i] = motor.voltage_regulator(self.odrvs[i],self.d_des[i])
+
 
         phi_des = geom.phi_from_d(
             self.d_des,

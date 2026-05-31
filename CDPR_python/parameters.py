@@ -14,9 +14,9 @@ WORKSPACE_Y_MIN = -0.4
 WORKSPACE_Y_MAX = 0.4
 
 f_min = 0.1      # min tension [N]
-f_max = 1.0      # max tension [N]
-f = 0.3
-f_c   = [1.5*f, 0.1*f, 0.4*f, 1.5*f]      # force-controlled cable tension [N]
+f_max = 2.0      # max tension [N]
+f = 0.4
+f_c   = [0.7*f, 0.4*f, 0.4*f, 1*f]      # force-controlled cable tension [N]
 
 r_d   = 20e-3     # drum radius [m]
 
@@ -36,12 +36,6 @@ b = np.array([
 # -- home position --
 home = [0, -0.02, 0]    # hole
 #home = [0, -0.3, 0]      # low home, tape
-
-
-# -- Desired trajectory parameters --
-R = 0.15           # radius [m]
-omega = 1.5          # angular speed [rad/s]
-MAX_VEL = 3
 
 
 # -- Hybrid control setup --

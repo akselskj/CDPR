@@ -13,7 +13,7 @@ this file contains helper functions
 """
 
 
-# MATH / KINEMATICS
+# MATH / KINEMATICS (put here as it is only useful for FDSI)
 
 def structure_matrix(a, b, q):
     """
@@ -120,7 +120,6 @@ def select_force_controlled_cables(a, b, q_des, j_force_current, gamma):
     # Best candidate
     best_idx = int(np.argmin(sigma_vals))
     sigma_min = sigma_vals[best_idx]
-    best_jset = comb_list[best_idx]
 
     # --- Evaluate current choice ---
     cols_c_cur = [j_force_current]
@@ -134,7 +133,7 @@ def select_force_controlled_cables(a, b, q_des, j_force_current, gamma):
 
     # --- Apply hysteresis ---
     if sigma_min < gamma * sigma_cur:
-        j_force_new = best_jset
+        j_force_new = best_idx
     else:
         j_force_new = j_force_current
 
